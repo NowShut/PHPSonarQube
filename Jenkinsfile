@@ -1,33 +1,25 @@
 pipeline {
-    agent {
-        docker {
-            image 'composer:latest'
-        }
-    }
-
+    agent any
     stages {
-
-        stage('Install Dependencies') {
+        stage('Checkout') {
             steps {
-                // Install Composer dependencies
-                sh 'composer install'
+                git branch: 'master', url: 'https://github.com/OWASP/Vulnerable-Web-Application.git'
             }
         }
-
-        stage('Run PHPUnit Tests') {
+        stage('Code Quality Check via SonarQube') {
             steps {
-                // Run PHPUnit tests
-                sh 'vendor/bin/phpunit --log-junit logs/unitreport.xml --configuration src/tests/phpunit.xml'
+                script {
+                    def scannerHome = tool 'SonarQube';
+                    withSonarQubeEnv('SonarQube') {
+                        sh "${scannerHome}/bin/sonar-scanner -Dsonar.projectKey=OWASP -Dsonar.sources=."
+                    }
+                }
             }
         }
-
-        // Add more stages as needed
     }
-
     post {
-		always {
-			junit testResults: 'logs/unitreport.xml'
-		}
-	}
-
+        always {
+            recordIssues enabledForFailure: true, tool: sonarQube()
+        }
+    }
 }
